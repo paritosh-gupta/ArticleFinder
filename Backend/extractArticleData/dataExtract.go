@@ -139,7 +139,7 @@ func GetEntities(allData *ArticleData){
 		urlValues.Add("powered_by", "no")
 		urlValues.Add("policy", "whitelist")
 		urlValues.Add("confidence", "0.5")
-		status,data:=PostRequest("http://localhost:2222","/rest/annotate",urlValues,"xml")
+		status,data:=PostRequest("http://10.2.10.52:2222","/rest/annotate",urlValues,"xml")
 		fmt.Println("status for entity request", status)
 
 		entitiesMap := make(map[string]int)
@@ -161,10 +161,14 @@ func GetEntities(allData *ArticleData){
 			if !prs{
 
 				split:=strings.Split(URI.URI,`/`) //Extract term from dbpedia URI
-				entity:=split[len(split)-1]
-				entitiesMap[entity]+=1 // update the map so that we can ignore if it appears again
-				entities=append(entities,GetEntityInfo(entity,"")[0]) // the fist entry
 
+				entity:=split[len(split)-1]
+				fmt.Println("entity is "+entity)
+				entitiesMap[URI.URI]+=1 // update the map so that we can ignore if it appears again
+				entityData:=GetEntityInfo(entity,"")
+				if len(entityData)>0{
+					entities=append(entities,GetEntityInfo(entity,"")[0]) // the first entry
+				}
 			}
 		}
 
@@ -244,7 +248,7 @@ func PostRequest(baseUrl string,path string,urlValues url.Values,acceptType stri
     Url.RawQuery = urlValues.Encode()
 
 	client := &http.Client{}
-	fmt.Println(Url.String())
+	// fmt.Println(Url.String())
 	req, err := http.NewRequest("POST",Url.String(),nil)
 	if acceptType=="xml" {
 		req.Header.Add("Accept", "text/xml")

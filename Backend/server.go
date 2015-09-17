@@ -50,7 +50,7 @@ func submitLink(w http.ResponseWriter, r *http.Request,store *cayley.Handle) {
 		// }
 				
 		store.AddQuad(cayley.Quad(data.Link,"has_entity",entity.Name,""))
-		store.AddQuad(cayley.Quad(entity.Name, "has_type",entity.Type,""))
+		// store.AddQuad(cayley.Quad(entity.Name, "has_type",entity.Type,""))
 
 			
 	
@@ -63,7 +63,7 @@ func submitLink(w http.ResponseWriter, r *http.Request,store *cayley.Handle) {
 
 		for _,class := range entity.Classes{
 			store.AddQuad(cayley.Quad(entity.Name, "has_class",class,""))
-			fmt.Println("has_class")
+			// fmt.Println("has_class")
 		}
 
 		for _,category := range entity.Categories{

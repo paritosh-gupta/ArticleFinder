@@ -150,7 +150,7 @@ const CARD_HTML=`
 			{{with .Articles}}
 				{{range .}}
 				<div class="col s12 m6 l4">
-                  <div class="card blue-grey darken-3">
+                  <div class="card blue-grey darken-3 hoverable">
                     <div class="card-content white-text">
                       <span class="card-title">{{.Title}}</span>
                       <p>{{.Description}}</p>
