@@ -27,13 +27,12 @@ type Article struct {
 	}
 
 /*
-Handles data obtained when a user clicks submit
+Calls the extractArticleData package to obtain Article Data and then adds the information to the database
 */
 func submitLink(w http.ResponseWriter, r *http.Request,store *cayley.Handle) {
 	
 	data :=extractArticleData.GetDataFromArticle(r.FormValue("UploadLink"))
-	//ent:= []extractArticleData.Entity{}
-	//data:=extractArticleData.ArticleData{"link.com","date","Parent","Content","title","Description","Image",ent}
+
 	store.AddQuad(cayley.Quad(data.Link, "has_parent", data.Parent, ""))
 	store.AddQuad(cayley.Quad(data.Link, "has_date",  data.Date, ""))
 	store.AddQuad(cayley.Quad(data.Link,"has_content",data.Content,""))
@@ -43,27 +42,10 @@ func submitLink(w http.ResponseWriter, r *http.Request,store *cayley.Handle) {
 	
 	for _,entity := range data.Entities {
 
-		// val,err:=strconv.ParseFloat(entity.Relevance,32)
-		
-		// if err!=nil || val < 0.1 {
-		// 	continue
-		// }
-				
 		store.AddQuad(cayley.Quad(data.Link,"has_entity",entity.Name,""))
-		// store.AddQuad(cayley.Quad(entity.Name, "has_type",entity.Type,""))
-
-			
-	
-		// if entity.Disambiguated.Dbpedia!="" {
-		// 	store.AddQuad(cayley.Quad(entity.Name,"has_dbpedia","entity.Disambiguated.Dbpedia",""))
-		// }
-		// if entity.Disambiguated.Freebase!="" {
-		// 	store.AddQuad(cayley.Quad(entity.Name,"has_freebase","entity.Disambiguated.Freebase",""))
-		// }
-
 		for _,class := range entity.Classes{
 			store.AddQuad(cayley.Quad(entity.Name, "has_class",class,""))
-			// fmt.Println("has_class")
+			
 		}
 
 		for _,category := range entity.Categories{
@@ -76,7 +58,7 @@ func submitLink(w http.ResponseWriter, r *http.Request,store *cayley.Handle) {
 }
 
 /*
-	The root page.Gets Data from the database to display
+	Display the Search Page
 */
 func searchHandler(w http.ResponseWriter, r *http.Request,store *cayley.Handle){
 
@@ -89,19 +71,19 @@ func searchHandler(w http.ResponseWriter, r *http.Request,store *cayley.Handle){
 
 	t.Execute(w, nil)
 }
-
+/*
+* Cals the Search package to search the database for the tags and returns Html with search results
+*/
 func searchResultsHandler(w http.ResponseWriter, r *http.Request,store *cayley.Handle){
 
-	//fmt.Println(r.URL.Query().Get("tags"))
 	fmt.Fprintf(w,
 		search.GetSearchResultsAsCards(r.URL.Query().Get("tags"),
 			store) )
-	// t.Execute(w, nil)
 }
 
 
 /*
-	The root page.Gets Data from the database to display
+	The root page.Gets Data from the database to Display articles
 */
 func mainHandler(w http.ResponseWriter, r *http.Request,store *cayley.Handle){
 
@@ -146,9 +128,7 @@ func mainHandler(w http.ResponseWriter, r *http.Request,store *cayley.Handle){
 }
 
 
-/*
- * 
- */
+
 func main() {
 
 	store, err := cayley.NewGraph("bolt", dbPath, nil)

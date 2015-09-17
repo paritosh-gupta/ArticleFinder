@@ -1,4 +1,19 @@
 package extractArticleData
+/*
+* This package is responsible 
+	1) Extracting article text,title,etc.
+		This is done by calling the python serverwhich runs goose.
+	2) Calling the DBpedia Spotlight Server to extract entities.
+	3) Calling the DBpedia lookup Server to extract information for each entity
+	
+	See README for more information on each server
+	
+	Terminology:-
+	An Article is the link that a user gives to be input into the archive
+
+	
+*/
+
 
 import (
 	"encoding/xml"
@@ -11,9 +26,8 @@ import (
 	"encoding/json"
 )
 
-const cherryAddress = "http://localhost:8081"
-const dbpediaServerAddress = "http://localhost:1111/api/search/KeywordSearch?QueryString="
-
+const gooseServerAddress = "http://localhost:8081" // Address of the server that extracts article data(text,title,image etc)
+const dbpediaSpotlightAddress = "http://localhost:2222" //Dbpedia server which is used for entity extraction
 /*
 * All the data that we extract from an article
  */
@@ -27,26 +41,10 @@ type ArticleData struct {
 	Image       string // An Image If preset in the article
 	Entities	[]EntityData //Entities present in the article
 }
-/*
-*To get Dbpedia or freebaase Links
-*/
-type Disambiguatations struct{
-	Dbpedia string
-	Freebase string
-}
-
-// type Entity struct{
-// 	Name string 
-// 	Classes []string
-// 	Categories []string
-// }
-
 
 /*
-*Entity Structure Returned by Alchemy Api
+*Information Extracted for each entity
 */
-
-
 type EntityData struct{
 	Name string `xml:"Label"`
 	Classes []string `xml:"Classes>Class>Label"`
@@ -57,17 +55,18 @@ type EntityData struct{
 type EntityDataList struct{
 	 EntityDataSlice []EntityData `xml:"Result"`
 }
+
 /*
-Get Article info(title,image,content,description),entities
+This function extracts all information from an Article.
+@param linkUrl string:=The link of the article
+return struct of type ArticleData with all the information
 */
 func GetDataFromArticle(linkUrl string) ArticleData {
 	
 	var allData ArticleData
 	ExtractArticleTextInfo(&allData, &linkUrl)
 	GetEntities(&allData)
-	
-	//fmt.Println(allData.Entities)
-	allData.Parent="Article"
+	allData.Parent="Article" //The parent node of every link is Article
 	allData.Link=linkUrl
 	allData.Date=time.Now().Local().Format("2006-01-02 15:04:05 +0800")
 	return allData
@@ -75,23 +74,20 @@ func GetDataFromArticle(linkUrl string) ArticleData {
 }
 
 /**
-* Extracts article information from the cherryPy server(which uses Goose) .
+* Extracts article information from the python Goose server() .
   @param allData *ArticleData : pointer to an articleData to where all information needs to be stored
 */
 func ExtractArticleTextInfo(allData *ArticleData, linkUrl *string) {
 	values:=url.Values{"url": {*linkUrl}}
-	_, data := GetRequest(cherryAddress,"",values)
-	//fmt.Println( string(data))
+	_, data := GetRequest(gooseServerAddress,"",values)
 	err := json.Unmarshal(data, &allData)
 	if err != nil {
 		fmt.Println("Error in Extract Article Info json:", err)
 	}
-	//fmt.Println(allData)
-
 }
 
 /*
-	Launch a Get Request. 
+	Launch a Get Request. No Headers have been set
 	@param baseUrl:= The base url
 	@param path:= a path to add on to the base url. E.g=/test/api
 	@param parameters:= parameters that you want to pass. 
@@ -99,7 +95,6 @@ func ExtractArticleTextInfo(allData *ArticleData, linkUrl *string) {
 */
 func GetRequest(baseUrl string,path string,urlValues url.Values) (string, []byte) {
 
-	
 	Url, err := url.Parse(baseUrl)
 	if err != nil {
         panic("invalid Url for get request")
@@ -124,14 +119,18 @@ func GetRequest(baseUrl string,path string,urlValues url.Values) (string, []byte
 	return resp.Status, body
 }
 
+/*
+*Struct to Parse Data Returned by the DBpedia Spotlight server
+*/
 type Resource struct{
-			//SurfaceForm string `xml:"surfaceForm,attr"`
 			URI string `xml:"URI,attr"`
 }
-/*
-* Get Entities from the DBPedia Spotlight server
-*/
 
+/*
+* Get Entities from the DBPedia Spotlight server.
+* @param allData ArticleData:- An ArticleData Instance which must have the article contents
+in allData.Content to get some result
+*/
 func GetEntities(allData *ArticleData){
 		
 		urlValues := url.Values{}
@@ -152,13 +151,13 @@ func GetEntities(allData *ArticleData){
 		if err != nil {
 			fmt.Println("Entities xml Unmarshall Error:", err)
 		}
-		//Need to remove duplicates and get Categories
+		//Need to remove duplicates and get Categories.Hence a map
 		entities:=make([]EntityData,0,cap(temp.Resource))
 
 		for _,URI :=range temp.Resource{
 
-			_, prs := entitiesMap[URI.URI]
-			if !prs{
+			_, valuePresent := entitiesMap[URI.URI]
+			if !valuePresent{
 
 				split:=strings.Split(URI.URI,`/`) //Extract term from dbpedia URI
 
@@ -176,59 +175,6 @@ func GetEntities(allData *ArticleData){
 
 
 }
-
-/*
-* Get entities from the Alchemy Api. 
-* 
-*/
-// func GetEntities(allData *ArticleData, linkUrl *string) {
-// type Entity struct{
-// 	Type string
-// 	Relevance string
-// 	Count string
-// 	Text string
-// 	Disambiguated Disambiguatations
-// 	Classes []string
-// 	Categories []string
-// }
-// 	apiURL := "http://access.alchemyapi.com/calls/url/URLGetRankedNamedEntities"
-// 	fmt.Println("url:= ",apiURL)
-// 	urlValues:=url.Values{ "url": {*linkUrl},"apikey": {"7287ca76f8e1b6730787e8ee14ec1b03dacc2041"},"outputMode":{"json"}}
-// 	status,data:=PostRequest(apiURL,urlValues)
-// 	fmt.Println("status for entity request", status)
-// 	//fmt.Println("response Body:", string(data))
-
-// 	type wrapper struct{
-// 		Entities []Entity
-// 	}
-
-// 	var temp wrapper
-
-// 	err := json.Unmarshal( data, &temp)
-// 	if err != nil {
-// 		fmt.Println("Entities Json Unmarshall Error:", err)
-// 	}
-
-
-// 	for i:=0;i<len(temp.Entities);i++{
-
-// 		entity:=temp.Entities[i]
-
-// 		results	:= GetEntityInfo(entity.Text,entity.Type)
-		
-// 		if(len(results)<1){
-// 			continue
-// 		}
-
-// 		//Dont change to var entity use the index since go is creating copies
-// 		temp.Entities[i].Classes=results[0].Classes
-// 		temp.Entities[i].Categories=results[0].Categories
-// 	}
-
-
-// 	allData.Entities=temp.Entities
-	
-// }
 	 
 /*
 * Launch a post request.
@@ -266,7 +212,7 @@ func PostRequest(baseUrl string,path string,urlValues url.Values,acceptType stri
 }
 
 /**
-Gets classes and Categoried for each entity from the dbpedia server
+Gets classes and Categories for each entity from the dbpedia server
 */
 func GetEntityInfo(name string,entityType string) ([]EntityData){
 
@@ -286,6 +232,7 @@ func GetEntityInfo(name string,entityType string) ([]EntityData){
 	
 
 }
+
 /*
 Remove certain classes
 */

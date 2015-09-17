@@ -1,9 +1,12 @@
 package search
+/*
+Implementation for the article search. Algorithm Descrition in README or the github wiki
+
+*/
+
 import (
 		"strings"
-		// "fmt"
 		"github.com/google/cayley/graph"
-		// "net/url"
 		"github.com/google/cayley"		 
 		"../extractArticleData"
 		 _ "github.com/google/cayley/graph/bolt"
@@ -19,27 +22,34 @@ type Article struct{
 }
 
 const dbPath = "/Users/guptap/Documents/SearchTool/Database/backend.db"
-
+/*
+*Returns Search results as Html cards based on Materialize.js
+@param data:= The tags seperated as strings
+@param store:= The Cayley Database object
+*/
 
 func GetSearchResultsAsCards(data string,store *cayley.Handle)(string){
 	tags:=strings.Split(data,",")
-	pairs:=GetArticles(tags,store)
+	pairs:=SearchForArticles(tags,store)
 	if len(pairs)==0 {
 		return NO_RESULTS
 	}
-	htmlC:=GetHtml(store,pairs)
-	return htmlC
-}
-
-
-
-func GetHtml(store *cayley.Handle,pairs PairList)(string){
-	
-	var cards bytes.Buffer
+	//TODO:- Convert this to closure
 	Articles:=make([]Article,0,cap(pairs))
 	for _,pair:= range pairs{
-		Articles=append(Articles,ConvertLinkToInfo(store,pair.Key))
+		Articles=append(Articles,GetInfoForLink(store,pair.Key))
 	}
+	return ConvertToHtml(Articles)
+}
+
+/*
+* This function takes the PairList 
+*@param store *cayley.Handle :- A cayley graph Data object to access the Database
+*/
+
+func ConvertToHtml(Articles []Article)(string){
+	
+	var cards bytes.Buffer
 	t, err := template.New("foo").Parse(CARD_HTML)
 	if err != nil {
 		panic(err)
@@ -56,10 +66,12 @@ func GetHtml(store *cayley.Handle,pairs PairList)(string){
 	}
 	return  cards.String() 
 }
-
-
-
-func GetArticles(tags []string,store *cayley.Handle)(PairList){
+/*
+* Searches for articles in the database
+* @param tags string[] The tags entered by the user.Currently only entity search has been implemented.
+Algorithm in Readme
+*/
+func SearchForArticles(tags []string,store *cayley.Handle)(PairList){
 	links := make(map[string]int)
 
 	for _,tag:=range tags{
@@ -82,7 +94,6 @@ func GetArticles(tags []string,store *cayley.Handle)(PairList){
 				it, _ = it.Optimize()
 
 				 for cayley.RawNext(it) {
-				 	//fmt.Println(category)
 		   			link:=store.NameOf(it.Result())
 					links[link]+=10
 				  }
@@ -98,9 +109,12 @@ type Node struct{
 	Right *Node
 	Left *Node
 }
+/*
+@param link string := A link that should exsist in the database
+@param store *cayley.Handle :- A cayley graph Data object to access the Database
+*/
 
-
-func ConvertLinkToInfo(store *cayley.Handle,link string )(Article){
+func GetInfoForLink(store *cayley.Handle,link string )(Article){
 	path := cayley.StartPath(store, link).
 		Save("has_title","title").
 		Save("has_description","description")
@@ -118,6 +132,10 @@ func ConvertLinkToInfo(store *cayley.Handle,link string )(Article){
 	}
 }
 
+
+/*
+A simple Key value Pair struct
+*/
 type Pair struct {
   Key string
   Value int
@@ -140,10 +158,6 @@ func sortMapByValue(m map[string]int) PairList {
    sort.Sort(sort.Reverse(p))
    return p
 }
-
-// func main(){
-// 	fmt.Println("asdg")
-// }
 
 const CARD_HTML=`
 			<div class="row">
