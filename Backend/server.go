@@ -134,6 +134,7 @@ func main() {
 	store, err := cayley.NewGraph("bolt", dbPath, nil)
 	if err != nil {
 		fmt.Println("error in opening database", err)
+		return
 	}
 
 	http.Handle("/images/", http.StripPrefix("/images/", http.FileServer(http.Dir("website/images"))))
